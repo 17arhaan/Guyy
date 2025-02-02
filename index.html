@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Animated Guy</title>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    /* Canvas Styling */
+    canvas {
+      background: #222;
+      border: 2px solid #555;
+      margin-bottom: 10px;
+    }
+    /* Input Container */
+    #input-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    /* Input Box */
+    input[type="text"] {
+      width: 400px;
+      padding: 8px;
+      font-size: 16px;
+      border: 2px solid #555;
+      border-radius: 4px;
+      background: #333;
+      color: #eee;
+      outline: none;
+    }
+    /* Submit Button */
+    button {
+      padding: 8px 12px;
+      font-size: 16px;
+      margin-left: 5px;
+      border: none;
+      border-radius: 4px;
+      background: #555;
+      color: #eee;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #777;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="400" height="500"></canvas>
+  <div id="input-container">
+    <input type="text" id="command-input" placeholder="Enter command (wave, jump, blink, dance, spin, smile, frown, sneeze, or text)" />
+    <button id="submit-btn">Submit</button>
+  </div>
+
+  <script>
+    // Helper: Polyfill for roundRect (for speech bubble)
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        if (width < 2 * radius) radius = width / 2;
+        if (height < 2 * radius) radius = height / 2;
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.arcTo(x + width, y, x + width, y + height, radius);
+        this.arcTo(x + width, y + height, x, y + height, radius);
+        this.arcTo(x, y + height, x, y, radius);
+        this.arcTo(x, y, x + width, y, radius);
+        this.closePath();
+        return this;
+      };
+    }
+
+    // AnimatedGuy class using HTML5 Canvas
+    class AnimatedGuy {
+      constructor() {
+        // Global transformation state (for jump, dance, spin)
+        this.tx = 0;
+        this.ty = 0;
+        this.rotation = 0;
+        // Right arm extra rotation (for wave)
+        this.rightArmExtra = 0;
+        // Facial expression: "neutral", "smile", or "frown"
+        this.mouthExpression = "neutral";
+        // Toggle eyes (for blink/sneeze)
+        this.showEyes = true;
+        // Speech and sneeze texts (if any)
+        this.speechText = "";
+        this.sneezeText = "";
+        // Animation state
+        this.currentAnimation = null;
+        this.animFrame = 0;
+        // Animation parameters
+        this.waveAmplitude = 0.3; // in radians
+      }
+
+      startAnimation(command) {
+        if (this.currentAnimation) return; // Only one animation at a time
+        command = command.toLowerCase();
+        if (command === "wave") {
+          this.currentAnimation = "wave";
+          this.animFrame = 0;
+        } else if (command === "jump") {
+          this.currentAnimation = "jump";
+          this.animFrame = 0;
+        } else if (command === "blink") {
+          this.currentAnimation = "blink";
+          this.animFrame = 0;
+        } else if (command === "dance") {
+          this.currentAnimation = "dance";
+          this.animFrame = 0;
+        } else if (command === "spin") {
+          this.currentAnimation = "spin";
+          this.animFrame = 0;
+        } else if (command === "smile") {
+          this.currentAnimation = "smile";
+          this.animFrame = 0;
+          this.mouthExpression = "smile";
+        } else if (command === "frown") {
+          this.currentAnimation = "frown";
+          this.animFrame = 0;
+          this.mouthExpression = "frown";
+        } else if (command === "sneeze") {
+          this.currentAnimation = "sneeze";
+          this.animFrame = 0;
+        } else {
+          // Any other command: "speak"
+          this.currentAnimation = "speak";
+          this.animFrame = 0;
+          this.speechText = command;
+        }
+      }
+
+      update() {
+        if (!this.currentAnimation) return;
+        switch (this.currentAnimation) {
+          case "wave":
+            this.updateWave();
+            break;
+          case "jump":
+            this.updateJump();
+            break;
+          case "blink":
+            this.updateBlink();
+            break;
+          case "dance":
+            this.updateDance();
+            break;
+          case "spin":
+            this.updateSpin();
+            break;
+          case "smile":
+          case "frown":
+            this.updateExpression();
+            break;
+          case "sneeze":
+            this.updateSneeze();
+            break;
+          case "speak":
+            this.updateSpeak();
+            break;
+        }
+      }
+
+      updateWave() {
+        const totalFrames = 60;
+        if (this.animFrame < totalFrames) {
+          this.rightArmExtra = this.waveAmplitude * Math.sin(this.animFrame * 0.3);
+          this.animFrame++;
+        } else {
+          this.rightArmExtra = 0;
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+      }
+
+      updateJump() {
+        const totalFrames = 60;
+        if (this.animFrame < totalFrames / 2) {
+          // Ascend
+          this.ty = -5 * (this.animFrame / (totalFrames / 2));
+        } else if (this.animFrame < totalFrames) {
+          // Descend
+          this.ty = -5 * ((totalFrames - this.animFrame) / (totalFrames / 2));
+        } else {
+          this.ty = 0;
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+        this.animFrame++;
+      }
+
+      updateBlink() {
+        // Simple blink: eyes off for a brief period
+        if (this.animFrame === 0) this.showEyes = true;
+        if (this.animFrame === 10) this.showEyes = false;
+        if (this.animFrame === 20) {
+          this.showEyes = true;
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+        this.animFrame++;
+      }
+
+      updateDance() {
+        const totalFrames = 60;
+        this.tx = 20 * Math.sin((2 * Math.PI * this.animFrame) / totalFrames);
+        this.animFrame++;
+        if (this.animFrame >= totalFrames) {
+          this.tx = 0;
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+      }
+
+      updateSpin() {
+        const totalFrames = 60;
+        this.rotation = (2 * Math.PI * this.animFrame) / totalFrames;
+        this.animFrame++;
+        if (this.animFrame >= totalFrames) {
+          this.rotation = 0;
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+      }
+
+      updateExpression() {
+        // Maintain smile or frown for 60 frames, then revert to neutral
+        const totalFrames = 60;
+        this.animFrame++;
+        if (this.animFrame >= totalFrames) {
+          this.mouthExpression = "neutral";
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+      }
+
+      updateSneeze() {
+        // Sneeze: hide eyes and show "Achoo!" for 30 frames
+        if (this.animFrame === 0) {
+          this.showEyes = false;
+          this.sneezeText = "Achoo!";
+        }
+        if (this.animFrame === 30) {
+          this.showEyes = true;
+          this.sneezeText = "";
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+        this.animFrame++;
+      }
+
+      updateSpeak() {
+        // Speak: display text for 120 frames
+        const totalFrames = 120;
+        this.animFrame++;
+        if (this.animFrame >= totalFrames) {
+          this.speechText = "";
+          this.currentAnimation = null;
+          this.animFrame = 0;
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        // Translate the context to the figure’s center plus any global translation
+        ctx.translate(200 + this.tx, 250 + this.ty);
+        // Apply global rotation (e.g., for spin)
+        ctx.rotate(this.rotation);
+
+        // Draw the figure using a local coordinate system
+        // Here, (0,0) is the center of the body (waist)
+        // --- Draw Head ---
+        ctx.save();
+        ctx.translate(0, -80); // position head above the body
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffe0bd";
+        ctx.fill();
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw facial features if eyes should be visible
+        if (this.showEyes) {
+          // Left Eye
+          ctx.beginPath();
+          ctx.ellipse(-10, -10, 5, 3, 0, 0, Math.PI * 2);
+          ctx.fillStyle = "white";
+          ctx.fill();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(-10, -10, 2, 0, Math.PI * 2);
+          ctx.fillStyle = "black";
+          ctx.fill();
+          // Right Eye
+          ctx.beginPath();
+          ctx.ellipse(10, -10, 5, 3, 0, 0, Math.PI * 2);
+          ctx.fillStyle = "white";
+          ctx.fill();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(10, -10, 2, 0, Math.PI * 2);
+          ctx.fillStyle = "black";
+          ctx.fill();
+        }
+        // Eyebrows
+        ctx.beginPath();
+        ctx.moveTo(-15, -18);
+        ctx.lineTo(-5, -20);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(5, -20);
+        ctx.lineTo(15, -18);
+        ctx.stroke();
+        // Nose
+        ctx.beginPath();
+        ctx.moveTo(0, -8);
+        ctx.lineTo(0, 0);
+        ctx.stroke();
+        // Mouth based on expression
+        ctx.beginPath();
+        if (this.mouthExpression === "neutral") {
+          ctx.moveTo(-10, 10);
+          ctx.lineTo(10, 10);
+        } else if (this.mouthExpression === "smile") {
+          ctx.arc(0, 10, 10, 0, Math.PI, false);
+        } else if (this.mouthExpression === "frown") {
+          ctx.arc(0, 15, 10, Math.PI, 0, false);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // --- Draw Body ---
+        ctx.beginPath();
+        ctx.moveTo(0, -50);
+        ctx.lineTo(0, 50);
+        ctx.stroke();
+
+        // --- Draw Left Arm ---
+        ctx.beginPath();
+        ctx.moveTo(0, -40);
+        ctx.lineTo(-40, 0);
+        ctx.stroke();
+
+        // --- Draw Right Arm (with wave extra rotation) ---
+        ctx.save();
+        ctx.translate(0, -40);
+        ctx.rotate(this.rightArmExtra);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(40, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        // --- Draw Legs ---
+        // Left Leg
+        ctx.beginPath();
+        ctx.moveTo(0, 50);
+        ctx.lineTo(-20, 100);
+        ctx.stroke();
+        // Right Leg
+        ctx.beginPath();
+        ctx.moveTo(0, 50);
+        ctx.lineTo(20, 100);
+        ctx.stroke();
+
+        // --- Optionally Draw Speech Bubble ---
+        if (this.speechText) {
+          ctx.save();
+          ctx.translate(0, -130);
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 2;
+          ctx.roundRect(-60, -20, 120, 40, 10);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "white";
+          ctx.font = "14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(this.speechText, 0, 0);
+          ctx.restore();
+        }
+
+        // --- Optionally Draw Sneeze Text ---
+        if (this.sneezeText) {
+          ctx.save();
+          ctx.translate(0, -110);
+          ctx.fillStyle = "red";
+          ctx.font = "16px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(this.sneezeText, 0, 0);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    // Initialize Canvas and AnimatedGuy instance
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const guy = new AnimatedGuy();
+
+    // Main Animation Loop
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      guy.update();
+      guy.draw(ctx);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // Input Handling
+    const input = document.getElementById("command-input");
+    const button = document.getElementById("submit-btn");
+
+    button.addEventListener("click", () => {
+      const command = input.value.trim();
+      if (command !== "") {
+        guy.startAnimation(command);
+        input.value = "";
+      }
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const command = input.value.trim();
+        if (command !== "") {
+          guy.startAnimation(command);
+          input.value = "";
+        }
+      }
+    });
+  </script>
+</body>
+</html>
